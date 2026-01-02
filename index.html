@@ -30,6 +30,7 @@ h1 { font-size:20px; margin-bottom:4px; }
   <h1>🚲 Fietsroute</h1>
   <div class="subtitle">Letters zijn blauw. Binnen 100m worden ze groen en kun je erop klikken.</div>
   <div id="list"></div>
+  <p id="gpsError" style="color:red; font-weight:600;"></p>
 </div>
 
 <div id="popup">
@@ -70,12 +71,12 @@ function render(){
       <div class="letter ${isGreen?'green':''}">${l.letter}</div>
       <div class="info">
         <div class="name">${l.naam}</div>
-        <div class="distance">${d!==null?d+' meter':''}</div>
+        <div class="distance">${d!==null?d+' meter':'Afstand onbekend'}</div>
         ${isGreen?'<div class="tap">Tik om te openen</div>':''}
       </div>`;
     if(isGreen) el.onclick=()=>openPopup(l);
 
-    // cheat lang indrukken 10s unlock
+    // Cheat: lang indrukken 10s
     let pressTimer;
     el.addEventListener('mousedown', ()=>{ pressTimer=setTimeout(()=>{ unlocked[l.letter]=true; render(); },10000); });
     el.addEventListener('touchstart', ()=>{ pressTimer=setTimeout(()=>{ unlocked[l.letter]=true; render(); },10000); });
@@ -94,10 +95,20 @@ function check(){
   render();
 }
 
-navigator.geolocation.watchPosition(p=>{
-  userPos={lat:p.coords.latitude,lng:p.coords.longitude};
-  check();
-},{ enableHighAccuracy:true });
+// Vraag GPS toegang
+if(navigator.geolocation){
+  navigator.geolocation.watchPosition(p=>{
+    userPos={lat:p.coords.latitude,lng:p.coords.longitude};
+    check();
+    document.getElementById('gpsError').innerText='';
+  }, e=>{
+    document.getElementById('gpsError').innerText='GPS-toegang geweigerd of niet beschikbaar.';
+    render(); // toon lijst met "Afstand onbekend"
+  },{ enableHighAccuracy:true });
+} else {
+  document.getElementById('gpsError').innerText='GPS wordt niet ondersteund in deze browser.';
+  render();
+}
 
 function openPopup(loc){
   document.getElementById('popupTitle').innerText=loc.letter+' – '+loc.naam;
