@@ -1,123 +1,126 @@
 <!DOCTYPE html><html lang="nl">
 <head>
   <meta charset="UTF-8" />
-  <title>Fiets Spel Bergen (NH) – Multiplayer Route Game</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  <!-- Leaflet -->  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />  <!-- Leaflet Routing Machine (gebruikt OSRM – geen API key) -->  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: system-ui, sans-serif;
+  <title>🚲 Fiets Game Bergen – Marion met Pensioen</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />  <style>
+    html, body { margin:0; padding:0; height:100%; font-family:system-ui,sans-serif; }
+    #map { height:100%; width:100%; }
+
+    .ui {
+      position:absolute; top:10px; left:10px; z-index:1000;
+      background:white; padding:14px; border-radius:12px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.25); max-width:320px;
     }
 
-    #map {
-      height: 100%;
-      width: 100%;
+    h2 { margin:0 0 6px 0; font-size:18px; }
+    button {
+      width:100%; margin-top:6px; padding:10px;
+      border:none; border-radius:8px;
+      background:#2563eb; color:white; font-size:14px;
     }
-
-    .game-box {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: white;
-      padding: 12px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      max-width: 260px;
-      z-index: 1000;
-    }
-
-    .game-box h2 {
-      margin: 0 0 8px 0;
-      font-size: 16px;
-    }
-
-    .game-box button {
-      width: 100%;
-      margin-top: 6px;
-      padding: 8px;
-      border: none;
-      border-radius: 6px;
-      background: #2563eb;
-      color: white;
-      font-size: 14px;
-      cursor: pointer;
-    }
+    .small { font-size:13px; margin-top:6px; }
+    .score { margin-top:6px; font-size:13px; }
   </style></head>
-<body><div class="game-box">
-  <h2>🚲 Fiets Spel Bergen</h2>
-  <p><strong>Missie:</strong><br>
-  Fiets langs alle locaties en voltooi de opdrachten.</p>
-  <p><strong>Speciale missie:</strong><br>
-  Vier dat <b>Marion met pensioen gaat</b> 🎉</p>
-  <button onclick="nextMission()">Volgende missie</button>
-  <p id="missionText"></p>
-</div><div id="map"></div><!-- Scripts --><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script><script>
-  // Startpunt Bergen
-  const map = L.map('map').setView([52.6696, 4.7053], 13);
+<body><div class="ui">
+  <h2>🚲 Fiets Game Bergen</h2>
+  <p class="small">Samen fietsen langs mooie plekken.<br>Teams wisselen, iedereen blijft samen.</p><button onclick="volgendeLocatie()">📍 Volgende locatie</button> <button onclick="shuffleTeams()">👥 Nieuwe teams</button> <button onclick="puntenTeam('A')">➕ Punt Team A</button> <button onclick="puntenTeam('B')">➕ Punt Team B</button>
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap bijdragers'
-  }).addTo(map);
+  <div id="info" class="small"></div>
+  <div id="score" class="score"></div>
+</div><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script><script>
+// =========================
+// DATA
+// =========================
 
-  // Spel-locaties
-  const locaties = [
-    {
-      naam: 'Bergen Centrum',
-      coords: [52.6696, 4.7053],
-      missie: 'Start hier het spel en verzamel alle spelers.'
-    },
-    {
-      naam: 'Schoorlse Duinen',
-      coords: [52.6919, 4.6732],
-      missie: 'Maak een groepsfoto met de fietsen.'
-    },
-    {
-      naam: 'Duinweg',
-      coords: [52.6802, 4.6559],
-      missie: 'Wie kan het snelst 10 trappen tellen?'
-    },
-    {
-      naam: 'Terug naar Bergen',
-      coords: [52.6696, 4.7053],
-      missie: 'Eindfeest: Marion gaat met pensioen 🎉'
-    }
-  ];
+const spelers = ['Marion','Anna','Jan','Pieter','Sophie','Tom'];
 
-  let huidigeMissie = 0;
+const locaties = [
+  { naam:'Bergen Centrum (Start)', coords:[52.6696,4.7053], opdracht:'Check fietsen & start samen.' },
+  { naam:'Bergerbos', coords:[52.6739,4.6825], opdracht:'📸 Maak een groepsfoto met bomen.' },
+  { naam:'Schoorlse Duinen', coords:[52.6919,4.6732], opdracht:'🧠 Vertel een leuk feitje over Marion.' },
+  { naam:'Duinweg Uitzicht', coords:[52.6802,4.6559], opdracht:'🎭 Doe 10 fietsbellen tegelijk.' },
+  { naam:'Terug naar Bergen', coords:[52.6696,4.7053], opdracht:'🎉 Marion is met pensioen! Applaus!' }
+];
 
-  // Markers
-  locaties.forEach(loc => {
-    L.marker(loc.coords)
-      .addTo(map)
-      .bindPopup(`<b>${loc.naam}</b><br>${loc.missie}`);
-  });
+let huidigeIndex = 0;
+let score = { A:0, B:0 };
+let huidigeLocatie = null;
 
-  // Routing (echte fietsroutes via OSRM)
-  const routing = L.Routing.control({
-    waypoints: locaties.map(l => L.latLng(l.coords[0], l.coords[1])),
-    router: L.Routing.osrmv1({
-      serviceUrl: 'https://router.project-osrm.org/route/v1'
-    }),
-    lineOptions: {
-      styles: [{ color: '#2563eb', weight: 4 }]
-    },
-    show: false,
-    addWaypoints: false,
-    draggableWaypoints: false,
-    fitSelectedRoutes: true
-  }).addTo(map);
+// =========================
+// MAP
+// =========================
 
-  // Missies
-  function nextMission() {
-    if (huidigeMissie >= locaties.length) {
-      document.getElementById('missionText').innerText = '🎉 Alle missies voltooid!';
-      return;
-    }
+const map = L.map('map').setView([52.6696,4.7053],13);
 
-    const missie = locaties[huidigeMissie];
-    document.getElementById('missionText').innerText = `📍 ${missie.naam}: ${missie.missie}`;
-    huidigeMissie++;
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap' }).addTo(map);
+
+locaties.forEach(l => L.marker(l.coords).addTo(map).bindPopup(`<b>${l.naam}</b><br>${l.opdracht}`));
+
+L.Routing.control({
+  waypoints: locaties.map(l => L.latLng(l.coords[0],l.coords[1])),
+  router: L.Routing.osrmv1({ serviceUrl:'https://router.project-osrm.org/route/v1', profile:'bike' }),
+  lineOptions:{ styles:[{color:'#2563eb',weight:4}] },
+  addWaypoints:false, draggableWaypoints:false, show:false, fitSelectedRoutes:true
+}).addTo(map);
+
+// =========================
+// GAME LOGIC
+// =========================
+
+function volgendeLocatie() {
+  if (huidigeIndex >= locaties.length) {
+    document.getElementById('info').innerHTML = '🎉 Einde spel! Marion geniet van je pensioen!';
+    return;
   }
+
+  huidigeLocatie = locaties[huidigeIndex];
+  document.getElementById('info').innerHTML = `📍 <b>${huidigeLocatie.naam}</b><br>${huidigeLocatie.opdracht}<br><i>Loop/fiets hierheen om te starten</i>`;
+  huidigeIndex++;
+}
+
+function shuffleTeams() {
+  const mix = [...spelers].sort(() => Math.random()-0.5);
+  const half = Math.ceil(mix.length/2);
+  const teamA = mix.slice(0,half);
+  const teamB = mix.slice(half);
+
+  score.A += 1; score.B += 1; // bonus voor nieuwe teams
+
+  document.getElementById('info').innerHTML = `👥 <b>Nieuwe teams</b><br>Team A: ${teamA.join(', ')}<br>Team B: ${teamB.join(', ')}`;
+  updateScore();
+}
+
+function puntenTeam(team) {
+  score[team] += 1;
+  updateScore();
+}
+
+function updateScore() {
+  document.getElementById('score').innerHTML = `🏆 Score<br>Team A: ${score.A}<br>Team B: ${score.B}`;
+}
+
+// =========================
+// GPS CHECK (optioneel, simpel)
+// =========================
+
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(pos => {
+    if (!huidigeLocatie) return;
+    const d = afstand(pos.coords.latitude, pos.coords.longitude, huidigeLocatie.coords[0], huidigeLocatie.coords[1]);
+    if (d < 50) {
+      document.getElementById('info').innerHTML += '<br>✅ Aangekomen! Doe de opdracht.';
+    }
+  });
+}
+
+function afstand(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const toRad = x => x*Math.PI/180;
+  const dLat = toRad(lat2-lat1);
+  const dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 </script></body>
 </html>
