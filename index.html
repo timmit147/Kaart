@@ -17,7 +17,7 @@ h1 { font-size:20px; margin-bottom:4px; }
 .name { font-weight:600; }
 .distance { font-size:13px; color:#2563eb; }
 .tap { font-size:12px; color:#16a34a; font-weight:600; }
-.map-btn { position:fixed; top:12px; right:12px; background:#111827; color:white; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; z-index:2000; }
+.map-btn { position:fixed; top:12px; right:12px; background:#111827; color:white; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; z-index:2000; cursor:pointer; }
 #mapOverlay { position:fixed; inset:0; background:white; display:none; z-index:3000; }
 #map { height:100%; width:100%; }
 .closeMap { position:absolute; top:12px; right:12px; background:#111827; color:white; padding:10px 14px; border-radius:10px; z-index:4000; cursor:pointer; }
@@ -46,6 +46,7 @@ h1 { font-size:20px; margin-bottom:4px; }
     <p id="popupText"></p>
     <button id="showAnswer">Toon Antwoord</button>
     <p id="answerText" style="display:none; font-weight:600;"></p>
+    <p id="waitText" style="display:none; color:red; font-weight:600;">Je moet 5 minuten wachten!</p>
     <button class="close" onclick="closePopup()">Sluiten</button>
   </div>
 </div>
@@ -60,20 +61,19 @@ h1 { font-size:20px; margin-bottom:4px; }
 document.addEventListener('DOMContentLoaded', ()=>{
 
 const locaties = [
-  { letter:'A', naam:'Bergen Centrum', coords:[52.6696,4.7053], vraag:'Wat is het oudste gebouw van Bergen?' , antwoord:'De oude Kerk', uitleg:'Als je het fout had, moet je 5 minuten wachten.' },
-  { letter:'B', naam:'Bergerbos', coords:[52.6739,4.6825], vraag:'Welke boomsoort komt hier het meest voor?', antwoord:'Den', uitleg:'Fout antwoord: 5 minuten cooldown.' },
-  { letter:'C', naam:'Schoorlse Duinen', coords:[52.6919,4.6732], vraag:'Wat is de hoogste duin van Schoorl?', antwoord:'Duin 54 meter', uitleg:'Fout antwoord: 5 minuten cooldown.' },
-  { letter:'D', naam:'Duinweg Uitzicht', coords:[52.6802,4.6559], vraag:'Welke richting zie je de zee?', antwoord:'West', uitleg:'Fout antwoord: 5 minuten cooldown.' },
-  { letter:'E', naam:'Zeeweg Bosrand', coords:[52.6612,4.6668], vraag:'Is er een strand vlakbij?', antwoord:'Ja', uitleg:'Fout antwoord: 5 minuten cooldown.' },
-  { letter:'F', naam:'Park Meerwijk', coords:[52.6659,4.7202], vraag:'Welke kleur heeft het water?', antwoord:'Blauw', uitleg:'Fout antwoord: 5 minuten cooldown.' },
-  { letter:'G', naam:'Bergense Bos', coords:[52.6711,4.6889], vraag:'Hoeveel paden kruisen hier?', antwoord:'3', uitleg:'Fout antwoord: 5 minuten cooldown.' },
-  { letter:'H', naam:'Muurhuizen 241', coords:[52.1563,5.3873], vraag:'In welke stad ligt dit adres?', antwoord:'Amersfoort', uitleg:'Fout antwoord: 5 minuten cooldown.' },
-  { letter:'I', naam:'Terug naar Bergen', coords:[52.6696,4.7053], vraag:'Wie gaat met pensioen?', antwoord:'Marion', uitleg:'Fout antwoord: 5 minuten cooldown.' }
+  { letter:'A', naam:'Bergen Centrum', coords:[52.6696,4.7053], vraag:'Wat is het oudste gebouw van Bergen?' , antwoord:'De oude Kerk' },
+  { letter:'B', naam:'Bergerbos', coords:[52.6739,4.6825], vraag:'Welke boomsoort komt hier het meest voor?', antwoord:'Den' },
+  { letter:'C', naam:'Schoorlse Duinen', coords:[52.6919,4.6732], vraag:'Wat is de hoogste duin van Schoorl?', antwoord:'Duin 54 meter' },
+  { letter:'D', naam:'Duinweg Uitzicht', coords:[52.6802,4.6559], vraag:'Welke richting zie je de zee?', antwoord:'West' },
+  { letter:'E', naam:'Zeeweg Bosrand', coords:[52.6612,4.6668], vraag:'Is er een strand vlakbij?', antwoord:'Ja' },
+  { letter:'F', naam:'Park Meerwijk', coords:[52.6659,4.7202], vraag:'Welke kleur heeft het water?', antwoord:'Blauw' },
+  { letter:'G', naam:'Bergense Bos', coords:[52.6711,4.6889], vraag:'Hoeveel paden kruisen hier?', antwoord:'3' },
+  { letter:'H', naam:'Muurhuizen 241', coords:[52.1563,5.3873], vraag:'In welke stad ligt dit adres?', antwoord:'Amersfoort' },
+  { letter:'I', naam:'Terug naar Bergen', coords:[52.6696,4.7053], vraag:'Wie gaat met pensioen?', antwoord:'Marion' }
 ];
 
 let userPos=null;
-let unlocked=JSON.parse(localStorage.getItem('unlocked')||'{}');
-let cooldowns=JSON.parse(localStorage.getItem('cooldowns')||'{}');
+let unlocked={}; // letters unlocked
 
 const map=L.map('map',{zoomControl:false}).setView([52.6696,4.7053],14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -81,13 +81,9 @@ const userMarker=L.circleMarker([0,0],{radius:8,color:'#2563eb',fillOpacity:1}).
 
 function render(){
   const list=document.getElementById('list'); list.innerHTML='';
-  const now=Date.now();
   locaties.forEach(l=>{
     const d=userPos?Math.round(dist(userPos.lat,userPos.lng,l.coords[0],l.coords[1])):null;
     let isGreen=unlocked[l.letter] || (d!==null && d<100);
-    // cooldown check
-    if(cooldowns[l.letter] && now < cooldowns[l.letter]) isGreen=false;
-
     const el=document.createElement('div'); el.className='location';
     el.innerHTML=`
       <div class="letter ${isGreen?'green':''}">${l.letter}</div>
@@ -99,10 +95,10 @@ function render(){
 
     if(isGreen) el.onclick=()=>openPopup(l);
 
-    // Cheat: lang indrukken 10s
+    // Cheat: lang indrukken 10s unlock
     let pressTimer;
-    el.addEventListener('mousedown', ()=>{ pressTimer=setTimeout(()=>{ unlocked[l.letter]=true; localStorage.setItem('unlocked',JSON.stringify(unlocked)); render(); },10000); });
-    el.addEventListener('touchstart', ()=>{ pressTimer=setTimeout(()=>{ unlocked[l.letter]=true; localStorage.setItem('unlocked',JSON.stringify(unlocked)); render(); },10000); });
+    el.addEventListener('mousedown', ()=>{ pressTimer=setTimeout(()=>{ unlocked[l.letter]=true; render(); },10000); });
+    el.addEventListener('touchstart', ()=>{ pressTimer=setTimeout(()=>{ unlocked[l.letter]=true; render(); },10000); });
     ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev=>el.addEventListener(ev, ()=>{ clearTimeout(pressTimer); }));
 
     list.appendChild(el);
@@ -111,12 +107,10 @@ function render(){
 
 function check(){
   if(!userPos) return;
-  const now=Date.now();
   locaties.forEach(l=>{
     const d=dist(userPos.lat,userPos.lng,l.coords[0],l.coords[1]);
     if(d<100 && !unlocked[l.letter]){
       unlocked[l.letter]=true;
-      localStorage.setItem('unlocked',JSON.stringify(unlocked));
     }
   });
   render();
@@ -130,32 +124,26 @@ navigator.geolocation.watchPosition(p=>{
 },{ enableHighAccuracy:true });
 
 function openPopup(loc){
-  const now=Date.now();
-  if(cooldowns[loc.letter] && now < cooldowns[loc.letter]){
-    alert('Nog niet beschikbaar, probeer later');
-    return;
-  }
-
   document.getElementById('popupTitle').innerText=loc.letter+' – '+loc.naam;
   document.getElementById('popupText').innerText=loc.vraag;
   const answerText=document.getElementById('answerText');
   answerText.style.display='none';
-  answerText.innerText=loc.antwoord + ' (' + loc.uitleg + ')';
+  answerText.innerText=loc.antwoord;
+  const waitText=document.getElementById('waitText');
+  waitText.style.display='none';
   const btn=document.getElementById('showAnswer');
   btn.onclick=()=>{
     answerText.style.display='block';
-    // cooldown starten bij fout
-    cooldowns[loc.letter]=Date.now()+5*60*1000;
-    localStorage.setItem('cooldowns',JSON.stringify(cooldowns));
-    render();
+    waitText.style.display='block'; // show 5 min wait text
   };
   document.getElementById('popup').style.display='flex';
 }
+
 function closePopup(){ document.getElementById('popup').style.display='none'; }
 
 function openMap(){
   document.getElementById('mapOverlay').style.display='block';
-  setTimeout(()=>{ map.invalidateSize(); },200); // fix map rendering
+  setTimeout(()=>{ map.invalidateSize(); },200); // fix blank map
 }
 function closeMap(){ document.getElementById('mapOverlay').style.display='none'; }
 
