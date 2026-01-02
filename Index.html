@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fietsroute Bergen (Noord-Holland)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  <!-- Leaflet CSS (geen API key nodig) -->  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+  </style></head>
+<body>
+  <div id="map"></div>  <!-- Leaflet JS -->  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>  <script>
+    // Centrum Bergen (NH)
+    const bergenCenter = [52.6696, 4.7053];
+
+    // Kaart initialiseren
+    const map = L.map('map').setView(bergenCenter, 13);
+
+    // OpenStreetMap tiles (vrij te gebruiken, geen API key)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Voorbeeld fietsroute (Bergen → Schoorl → Duinen → Bergen)
+    const bikeRoute = [
+      [52.6696, 4.7053], // Bergen centrum
+      [52.6815, 4.6948], // Richting Schoorl
+      [52.6919, 4.6732], // Schoorlse Duinen
+      [52.6802, 4.6559],
+      [52.6627, 4.6765],
+      [52.6551, 4.6958],
+      [52.6696, 4.7053]  // Terug Bergen
+    ];
+
+    // Route tekenen
+    const routeLine = L.polyline(bikeRoute, {
+      color: 'blue',
+      weight: 4,
+      opacity: 0.8
+    }).addTo(map);
+
+    // Zoom aanpassen aan route
+    map.fitBounds(routeLine.getBounds());
+
+    // Start & eind marker
+    L.marker(bikeRoute[0]).addTo(map).bindPopup('Start / Eind: Bergen');
+  </script></body>
+</html>
