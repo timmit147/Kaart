@@ -3,12 +3,7 @@
   <meta charset="UTF-8" />
   <title>🚲 Fiets Game Bergen – Route A–I</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />  <style>
-    html, body {
-      margin:0; padding:0; height:100%;
-      font-family: system-ui, sans-serif;
-      background:#f6f7f9;
-    }
-
+    html, body { margin:0; padding:0; height:100%; font-family:system-ui,sans-serif; background:#f6f7f9; }
     .app { padding:16px; max-width:480px; margin:0 auto; }
 
     h1 { font-size:20px; margin-bottom:4px; }
@@ -16,34 +11,31 @@
 
     .location {
       background:white;
-      border-radius:12px;
-      padding:12px;
-      margin-bottom:10px;
-      box-shadow:0 4px 10px rgba(0,0,0,0.08);
-      display:flex;
-      align-items:center;
-      cursor:pointer;
+      border-radius:14px;
+      padding:14px;
+      margin-bottom:12px;
+      box-shadow:0 6px 16px rgba(0,0,0,0.08);
+      display:flex; align-items:center;
     }
 
     .letter {
-      width:36px; height:36px; border-radius:50%;
+      width:40px; height:40px; border-radius:50%;
       display:flex; align-items:center; justify-content:center;
       font-size:18px; font-weight:700;
-      margin-right:12px;
-      background:#9ca3af; color:white;
-      flex-shrink:0;
+      margin-right:12px; flex-shrink:0;
+      background:#2563eb; color:white;
+      transition:background .3s;
     }
 
     .letter.green { background:#16a34a; }
 
     .info { flex:1; }
-    .status { font-size:13px; font-weight:600; }
-    .locked { color:#9ca3af; }
-    .unlocked { color:#16a34a; }
-
+    .name { font-weight:600; }
     .distance { font-size:13px; color:#2563eb; }
 
-    /* MAP FULLSCREEN */
+    .tap { font-size:12px; color:#16a34a; font-weight:600; }
+
+    /* MAP */
     .map-btn {
       position:fixed; top:12px; right:12px;
       background:#111827; color:white;
@@ -52,34 +44,33 @@
       font-size:20px; z-index:2000;
     }
 
-    #mapOverlay {
-      position:fixed; inset:0; background:white;
-      display:none; z-index:3000;
-    }
-
+    #mapOverlay { position:fixed; inset:0; background:white; display:none; z-index:3000; }
     #map { height:100%; width:100%; }
+    .closeMap { position:absolute; top:12px; right:12px; background:#111827; color:white; padding:10px 14px; border-radius:10px; z-index:4000; }
 
-    .closeMap {
-      position:absolute; top:12px; right:12px;
-      background:#111827; color:white;
-      padding:10px 14px; border-radius:10px;
-      z-index:4000;
-    }
+    .leaflet-control-zoom, .leaflet-control-attribution { display:none !important; }
 
-    .leaflet-control-zoom,
-    .leaflet-control-attribution { display:none !important; }
+    /* POPUP */
+    #popup { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; z-index:5000; align-items:center; justify-content:center; }
+    .popup-box { background:white; border-radius:16px; padding:20px; width:90%; max-width:360px; }
+    .popup-box h2 { margin-top:0; }
+    .popup-box button { margin-top:12px; width:100%; padding:10px; border:none; border-radius:10px; background:#2563eb; color:white; font-size:15px; }
+    .close { background:#9ca3af !important; }
   </style></head>
 <body><div class="map-btn" onclick="openMap()">🗺️</div><div class="app">
-  <h1>🚲 Fietsroute Spel</h1>
-  <div class="subtitle">Volg de route A → I. Ga dichtbij om te ontgrendelen.</div>
+  <h1>🚲 Fietsroute</h1>
+  <div class="subtitle">Letters zijn blauw. Binnen 100m worden ze groen.</div>
   <div id="list"></div>
+</div><div id="popup">
+  <div class="popup-box">
+    <h2 id="popupTitle"></h2>
+    <p id="popupText"></p>
+    <button onclick="closePopup()">Sluiten</button>
+  </div>
 </div><div id="mapOverlay">
   <div class="closeMap" onclick="closeMap()">Sluiten ✕</div>
   <div id="map"></div>
 </div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
-// ======================
-// ROUTE LOCATIES (OP VOLGORDE)
-// ======================
 
 const locaties = [
   { letter:'A', naam:'Bergen Centrum', coords:[52.6696,4.7053], vraag:'Wat is de startplaats?' },
@@ -93,102 +84,61 @@ const locaties = [
   { letter:'I', naam:'Terug naar Bergen', coords:[52.6696,4.7053], vraag:'🎉 Wie gaat met pensioen?' }
 ];
 
-let userPos = null;
-let unlocked = JSON.parse(localStorage.getItem('unlocked') || '{}');
-let cooldowns = JSON.parse(localStorage.getItem('cooldowns') || '{}');
+let userPos=null;
+let unlocked=JSON.parse(localStorage.getItem('unlocked')||'{}');
 
-// ======================
-// LIST RENDER
-// ======================
+function render(){
+  const list=document.getElementById('list'); list.innerHTML='';
+  locaties.forEach(l=>{
+    const d=userPos?Math.round(dist(userPos.lat,userPos.lng,l.coords[0],l.coords[1])):null;
+    const isGreen=unlocked[l.letter];
 
-function render() {
-  const list = document.getElementById('list');
-  list.innerHTML = '';
-
-  locaties.forEach(l => {
-    const isUnlocked = unlocked[l.letter];
-
-    const el = document.createElement('div');
-    el.className = 'location';
-
-    el.innerHTML = `
-      <div class="letter ${isUnlocked ? 'green':''}">${l.letter}</div>
+    const el=document.createElement('div'); el.className='location';
+    el.innerHTML=`
+      <div class="letter ${isGreen?'green':''}">${l.letter}</div>
       <div class="info">
-        <b>${l.naam}</b><br>
-        <span class="status ${isUnlocked ? 'unlocked':'locked'}">
-          ${isUnlocked ? 'Ontgrendeld' : 'Vergrendeld'}
-        </span>
-      </div>
-    `;
+        <div class="name">${l.naam}</div>
+        <div class="distance">${d!==null?d+' meter':''}</div>
+        ${isGreen?'<div class="tap">Tik om te openen</div>':''}
+      </div>`;
 
-    el.onclick = () => handleClick(l);
+    if(isGreen){ el.onclick=()=>openPopup(l); }
     list.appendChild(el);
   });
 }
 
-// ======================
-// CLICK / QUIZ
-// ======================
-
-function handleClick(loc) {
-  if (!unlocked[loc.letter]) return alert('Nog niet dichtbij genoeg');
-
-  const now = Date.now();
-  if (cooldowns[loc.letter] && now < cooldowns[loc.letter]) {
-    const mins = Math.ceil((cooldowns[loc.letter]-now)/60000);
-    return alert(`Fout antwoord. Wacht ${mins} min.`);
-  }
-
-  const answer = prompt(loc.vraag);
-  if (!answer) return;
-
-  // simpele check: alles is goed behalve "nee"
-  if (answer.toLowerCase() === 'nee') {
-    cooldowns[loc.letter] = Date.now() + 5*60000;
-    localStorage.setItem('cooldowns', JSON.stringify(cooldowns));
-    alert('❌ Fout! 5 minuten wachten.');
-  } else {
-    alert('✅ Goed! Ga door naar de volgende locatie.');
-  }
+function openPopup(loc){
+  document.getElementById('popupTitle').innerText=loc.letter+' – '+loc.naam;
+  document.getElementById('popupText').innerText=loc.vraag;
+  document.getElementById('popup').style.display='flex';
 }
+function closePopup(){ document.getElementById('popup').style.display='none'; }
 
-// ======================
-// GPS CHECK
-// ======================
-
-function checkDistance() {
-  if (!userPos) return;
-
-  locaties.forEach(l => {
-    const d = dist(userPos.lat,userPos.lng,l.coords[0],l.coords[1]);
-    if (d < 100 && !unlocked[l.letter]) {
-      unlocked[l.letter] = true;
-      localStorage.setItem('unlocked', JSON.stringify(unlocked));
-      render();
+function check(){
+  if(!userPos) return;
+  locaties.forEach(l=>{
+    const d=dist(userPos.lat,userPos.lng,l.coords[0],l.coords[1]);
+    if(d<100 && !unlocked[l.letter]){
+      unlocked[l.letter]=true;
+      localStorage.setItem('unlocked',JSON.stringify(unlocked));
     }
   });
+  render();
 }
 
-if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(pos => {
-    userPos = { lat:pos.coords.latitude, lng:pos.coords.longitude };
-    userMarker.setLatLng([userPos.lat,userPos.lng]);
-    map.setView([userPos.lat,userPos.lng],14);
-    checkDistance();
-  }, null, { enableHighAccuracy:true });
-}
+navigator.geolocation.watchPosition(p=>{
+  userPos={lat:p.coords.latitude,lng:p.coords.longitude};
+  userMarker.setLatLng([userPos.lat,userPos.lng]);
+  map.setView([userPos.lat,userPos.lng],14);
+  check();
+},{},{enableHighAccuracy:true});
 
-// ======================
-// MAP (ALLEEN JIJ)
-// ======================
-
-const map = L.map('map', { zoomControl:false });
+const map=L.map('map',{zoomControl:false});
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+const userMarker=L.circleMarker([0,0],{radius:8,color:'#2563eb',fillOpacity:1}).addTo(map);
 
-const userMarker = L.circleMarker([0,0], { radius:8, color:'#2563eb', fillOpacity:1 }).addTo(map);
-
-function openMap() { document.getElementById('mapOverlay').style.display='block'; map.invalidateSize(); }
-function closeMap() { document.getElementById('mapOverlay').style.display='none'; }
+function openMap(){ document.getElementById('mapOverlay').style.display='block'; map.invalidateSize(); }
+function closeMap(){ document.getElementById('mapOverlay').style.display='none'; }
 
 function dist(lat1,lon1,lat2,lon2){
   const R=6371e3,toRad=x=>x*Math.PI/180;
