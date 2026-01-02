@@ -1,122 +1,191 @@
 <!DOCTYPE html><html lang="nl">
 <head>
   <meta charset="UTF-8" />
-  <title>🚲 Fiets Game Bergen – Marion met Pensioen</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />  <style>
-    html, body { margin:0; padding:0; height:100%; font-family:system-ui,sans-serif; }
-    #map { height:100%; width:100%; }
-
-    .ui {
-      position:absolute; top:10px; left:10px; z-index:1000;
-      background:white; padding:14px; border-radius:12px;
-      box-shadow:0 6px 18px rgba(0,0,0,0.25); max-width:320px;
+  <title>🚲 Fiets Game Bergen – Minimal & Mooi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  <!-- Leaflet (optioneel) -->  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />  <style>
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f6f7f9;
     }
 
-    h2 { margin:0 0 6px 0; font-size:18px; }
+    /* ========== UI ========== */
+    .app {
+      padding: 16px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 16px;
+    }
+
+    .location {
+      background: white;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .letter {
+      font-size: 22px;
+      font-weight: 700;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #2563eb;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .info {
+      flex: 1;
+    }
+
+    .distance {
+      font-size: 13px;
+      color: #2563eb;
+      font-weight: 600;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+    }
+
     button {
-      width:100%; margin-top:6px; padding:10px;
-      border:none; border-radius:8px;
-      background:#2563eb; color:white; font-size:14px;
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: #111827;
+      color: white;
+      font-size: 15px;
     }
-    .small { font-size:13px; margin-top:6px; }
-    .score { margin-top:6px; font-size:13px; }
+
+    /* ========== MAP ========== */
+    #map {
+      height: 240px;
+      border-radius: 14px;
+      margin-top: 12px;
+      display: none;
+      overflow: hidden;
+    }
+
+    /* Leaflet clean-up */
+    .leaflet-control-zoom,
+    .leaflet-control-attribution {
+      display: none !important;
+    }
   </style></head>
-<body><div class="ui">
-  <h2>🚲 Fiets Game Bergen</h2>
-  <p class="small">Samen fietsen langs mooie plekken.<br>Teams wisselen, iedereen blijft samen.</p><button onclick="volgendeLocatie()">📍 Volgende locatie</button> <button onclick="shuffleTeams()">👥 Nieuwe teams</button> <button onclick="puntenTeam('A')">➕ Punt Team A</button> <button onclick="puntenTeam('B')">➕ Punt Team B</button>
+<body><div class="app">
+  <h1>🚲 Fiets Spel – Bergen</h1>
+  <div class="subtitle">Samen fietsen. Geen stress. Volg de dichtstbijzijnde plek.</div>  <div id="list"></div><button onclick="toggleMap()">🗺️ Toon / verberg kaart</button>
 
-  <div id="info" class="small"></div>
-  <div id="score" class="score"></div>
-</div><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script><script>
-// =========================
-// DATA
-// =========================
-
-const spelers = ['Marion','Anna','Jan','Pieter','Sophie','Tom'];
+  <div id="map"></div>
+</div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+// ======================
+// LOCATIES (A–H)
+// ======================
 
 const locaties = [
-  { naam:'Bergen Centrum (Start)', coords:[52.6696,4.7053], opdracht:'Check fietsen & start samen.' },
-  { naam:'Bergerbos', coords:[52.6739,4.6825], opdracht:'📸 Maak een groepsfoto met bomen.' },
-  { naam:'Schoorlse Duinen', coords:[52.6919,4.6732], opdracht:'🧠 Vertel een leuk feitje over Marion.' },
-  { naam:'Duinweg Uitzicht', coords:[52.6802,4.6559], opdracht:'🎭 Doe 10 fietsbellen tegelijk.' },
-  { naam:'Terug naar Bergen', coords:[52.6696,4.7053], opdracht:'🎉 Marion is met pensioen! Applaus!' }
+  { letter:'A', naam:'Bergen Centrum', coords:[52.6696,4.7053] },
+  { letter:'B', naam:'Bergerbos', coords:[52.6739,4.6825] },
+  { letter:'C', naam:'Schoorlse Duinen', coords:[52.6919,4.6732] },
+  { letter:'D', naam:'Duinweg Uitzicht', coords:[52.6802,4.6559] },
+  { letter:'E', naam:'Zeeweg Bosrand', coords:[52.6612,4.6668] },
+  { letter:'F', naam:'Park Meerwijk', coords:[52.6659,4.7202] },
+  { letter:'G', naam:'Bergense Bos', coords:[52.6711,4.6889] },
+  { letter:'H', naam:'Terug naar Bergen', coords:[52.6696,4.7053] }
 ];
 
-let huidigeIndex = 0;
-let score = { A:0, B:0 };
-let huidigeLocatie = null;
+let userPos = null;
 
-// =========================
-// MAP
-// =========================
+// ======================
+// LIST LOGIC
+// ======================
 
-const map = L.map('map').setView([52.6696,4.7053],13);
+function updateList() {
+  if (!userPos) return;
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap' }).addTo(map);
+  const sorted = locaties.map(l => ({
+    ...l,
+    afstand: distance(userPos.lat, userPos.lng, l.coords[0], l.coords[1])
+  })).sort((a,b) => a.afstand - b.afstand);
 
-locaties.forEach(l => L.marker(l.coords).addTo(map).bindPopup(`<b>${l.naam}</b><br>${l.opdracht}`));
+  const list = document.getElementById('list');
+  list.innerHTML = '';
 
-L.Routing.control({
-  waypoints: locaties.map(l => L.latLng(l.coords[0],l.coords[1])),
-  router: L.Routing.osrmv1({ serviceUrl:'https://router.project-osrm.org/route/v1', profile:'bike' }),
-  lineOptions:{ styles:[{color:'#2563eb',weight:4}] },
-  addWaypoints:false, draggableWaypoints:false, show:false, fitSelectedRoutes:true
-}).addTo(map);
-
-// =========================
-// GAME LOGIC
-// =========================
-
-function volgendeLocatie() {
-  if (huidigeIndex >= locaties.length) {
-    document.getElementById('info').innerHTML = '🎉 Einde spel! Marion geniet van je pensioen!';
-    return;
-  }
-
-  huidigeLocatie = locaties[huidigeIndex];
-  document.getElementById('info').innerHTML = `📍 <b>${huidigeLocatie.naam}</b><br>${huidigeLocatie.opdracht}<br><i>Loop/fiets hierheen om te starten</i>`;
-  huidigeIndex++;
-}
-
-function shuffleTeams() {
-  const mix = [...spelers].sort(() => Math.random()-0.5);
-  const half = Math.ceil(mix.length/2);
-  const teamA = mix.slice(0,half);
-  const teamB = mix.slice(half);
-
-  score.A += 1; score.B += 1; // bonus voor nieuwe teams
-
-  document.getElementById('info').innerHTML = `👥 <b>Nieuwe teams</b><br>Team A: ${teamA.join(', ')}<br>Team B: ${teamB.join(', ')}`;
-  updateScore();
-}
-
-function puntenTeam(team) {
-  score[team] += 1;
-  updateScore();
-}
-
-function updateScore() {
-  document.getElementById('score').innerHTML = `🏆 Score<br>Team A: ${score.A}<br>Team B: ${score.B}`;
-}
-
-// =========================
-// GPS CHECK (optioneel, simpel)
-// =========================
-
-if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(pos => {
-    if (!huidigeLocatie) return;
-    const d = afstand(pos.coords.latitude, pos.coords.longitude, huidigeLocatie.coords[0], huidigeLocatie.coords[1]);
-    if (d < 50) {
-      document.getElementById('info').innerHTML += '<br>✅ Aangekomen! Doe de opdracht.';
-    }
+  sorted.forEach(l => {
+    const el = document.createElement('div');
+    el.className = 'location';
+    el.innerHTML = `
+      <div class="row">
+        <div class="letter">${l.letter}</div>
+        <div class="info">
+          <div><b>${l.naam}</b></div>
+          <div class="distance">${Math.round(l.afstand)} m van jou</div>
+        </div>
+      </div>
+    `;
+    list.appendChild(el);
   });
 }
 
-function afstand(lat1, lon1, lat2, lon2) {
+// ======================
+// MAP (alleen jouw locatie)
+// ======================
+
+const map = L.map('map', { zoomControl:false, dragging:true }).setView([52.6696,4.7053], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+const userMarker = L.circleMarker([0,0], {
+  radius: 8,
+  color: '#2563eb',
+  fillColor: '#2563eb',
+  fillOpacity: 1
+}).addTo(map);
+
+function toggleMap() {
+  const el = document.getElementById('map');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  map.invalidateSize();
+}
+
+// ======================
+// GPS
+// ======================
+
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(pos => {
+    userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    updateList();
+
+    userMarker.setLatLng([userPos.lat, userPos.lng]);
+    map.setView([userPos.lat, userPos.lng], 14);
+  }, null, { enableHighAccuracy:true });
+}
+
+function distance(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
-  const toRad = x => x*Math.PI/180;
+  const toRad = x => x * Math.PI / 180;
   const dLat = toRad(lat2-lat1);
   const dLon = toRad(lon2-lon1);
   const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
