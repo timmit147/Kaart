@@ -17,9 +17,10 @@ h1 { font-size:20px; margin-bottom:4px; }
 .distance { font-size:13px; color:#2563eb; }
 .tap { font-size:12px; color:#16a34a; font-weight:600; }
 #popup { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; z-index:5000; align-items:center; justify-content:center; padding:10px; }
-.popup-box { background:white; border-radius:16px; padding:20px; width:100%; max-width:360px; box-sizing:border-box; }
+.popup-box { background:white; border-radius:16px; padding:20px; width:100%; max-width:360px; box-sizing:border-box; max-height:80vh; overflow:auto; }
 .popup-box h2 { margin-top:0; }
 .popup-box p { margin-bottom:10px; }
+.popup-box img { width:100%; border-radius:10px; margin-top:10px; }
 .popup-box button { margin-top:8px; width:100%; padding:10px; border:none; border-radius:10px; background:#2563eb; color:white; font-size:15px; cursor:pointer; }
 .popup-box button.close { background:#9ca3af; }
 </style>
@@ -37,22 +38,37 @@ h1 { font-size:20px; margin-bottom:4px; }
   <div class="popup-box">
     <h2 id="popupTitle"></h2>
     <p id="popupText"></p>
+    <img id="popupImage" src="" alt="Opdracht foto">
     <button class="close" onclick="closePopup()">Sluiten</button>
   </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', ()=>{
+
 const locaties = [
   { letter:'A', naam:'Bergen Centrum', coords:[52.6696,4.7053], opdracht:'Doe 10 pushups' },
   { letter:'B', naam:'Bergerbos', coords:[52.6739,4.6825], opdracht:'Maak een foto van een boom' },
-  { letter:'C', naam:'Schoorlse Duinen', coords:[52.6919,4.6732], opdracht:'Spring drie keer in de lucht en maak een foto' },
+  { letter:'C', naam:'Schoorlse Duinen', coords:[52.6919,4.6732], opdracht:'Spring drie keer en maak een foto' },
   { letter:'D', naam:'Duinweg Uitzicht', coords:[52.6802,4.6559], opdracht:'Maak een selfie met de duinen op de achtergrond' },
   { letter:'E', naam:'Zeeweg Bosrand', coords:[52.6612,4.6668], opdracht:'Maak een foto van de zee' },
   { letter:'F', naam:'Park Meerwijk', coords:[52.6659,4.7202], opdracht:'Doe een korte meditatie van 1 minuut' },
   { letter:'G', naam:'Bergense Bos', coords:[52.6711,4.6889], opdracht:'Maak een foto met je groep' },
   { letter:'H', naam:'Muurhuizen 241', coords:[52.1563,5.3873], opdracht:'Loop 10 stappen achteruit en maak een foto' },
   { letter:'I', naam:'Terug naar Bergen', coords:[52.6696,4.7053], opdracht:'High five elkaar' }
+];
+
+// lijst van afbeeldingen
+const images = [
+'IMG-20260102-WA0024.jpg','IMG-20260102-WA0023.jpg','IMG-20260102-WA0022.jpg',
+'IMG-20260102-WA0021.jpg','IMG-20260102-WA0026.jpg','IMG-20260102-WA0025.jpg',
+'IMG-20260102-WA0015.jpg','IMG-20260102-WA0018.jpg','IMG-20260102-WA0014.jpg',
+'IMG-20260102-WA0016.jpg','IMG-20260102-WA0020.jpg','IMG-20260102-WA0017.jpg',
+'IMG-20260102-WA0019.jpg','IMG-20260102-WA0010.jpg','IMG-20260102-WA0013.jpg',
+'IMG-20260102-WA0011.jpg','IMG-20260102-WA0009.jpg','IMG-20260102-WA0008.jpg',
+'IMG-20260102-WA0007.jpg','IMG-20260102-WA0004.jpg','IMG-20260102-WA0005.jpg',
+'IMG-20260102-WA0006.jpg','IMG-20251206-WA0001.jpg','IMG-20260102-WA0001.jpg',
+'IMG-20260102-WA0000.jpg'
 ];
 
 let userPos = null;
@@ -65,8 +81,8 @@ function render(){
   const list = document.getElementById('list');
   list.innerHTML = '';
   locaties.forEach(l=>{
-    const d = lastDistance[l.letter] || 0;
-    const isGreen = unlocked[l.letter] || d <= 200;
+    const d = lastDistance[l.letter];
+    const isGreen = unlocked[l.letter] || (d !== undefined && d <= 200);
     if(isGreen) unlocked[l.letter] = true;
     const el = document.createElement('div');
     el.className = 'location';
@@ -74,7 +90,7 @@ function render(){
       <div class="letter ${isGreen?'green':''}">${l.letter}</div>
       <div class="info">
         <div class="name">${l.naam}</div>
-        <div class="distance">${d} meter</div>
+        <div class="distance">${d!==undefined?d+' meter':'--'}</div>
         ${isGreen?'<div class="tap">Tik om te openen</div>':''}
       </div>`;
     if(isGreen) el.onclick = ()=>openPopup(l);
@@ -98,11 +114,10 @@ function updateDistances(lat,lng){
   render();
 }
 
-// GPS toegang en smoothing
 function startTracking(){
   if(navigator.geolocation){
     navigator.geolocation.watchPosition(p=>{
-      if(p.coords.accuracy > 30) return; // filter slechte posities
+      if(p.coords.accuracy > 30) return;
       gpsHistory.push({lat:p.coords.latitude,lng:p.coords.longitude});
       if(gpsHistory.length>maxHistory) gpsHistory.shift();
       const avgLat = gpsHistory.reduce((s,pos)=>s+pos.lat,0)/gpsHistory.length;
@@ -121,6 +136,9 @@ function startTracking(){
 function openPopup(loc){
   document.getElementById('popupTitle').innerText = loc.letter+' – '+loc.naam;
   document.getElementById('popupText').innerText = loc.opdracht;
+  // Kies een afbeelding voor de locatie (willekeurig)
+  const img = document.getElementById('popupImage');
+  img.src = images[Math.floor(Math.random()*images.length)];
   document.getElementById('popup').style.display = 'flex';
 }
 
@@ -138,6 +156,7 @@ function dist(lat1,lon1,lat2,lon2){
 
 render();
 startTracking();
+
 });
 </script>
 
