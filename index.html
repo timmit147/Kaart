@@ -37,8 +37,6 @@ h1 { font-size:20px; margin-bottom:4px; }
   <div class="popup-box">
     <h2 id="popupTitle"></h2>
     <p id="popupText"></p>
-    <button id="answerBtn">Antwoord geven</button>
-    <p id="waitText" style="display:none; font-weight:600;">Je moet 5 minuten wachten!</p>
     <button class="close" onclick="closePopup()">Sluiten</button>
   </div>
 </div>
@@ -46,28 +44,29 @@ h1 { font-size:20px; margin-bottom:4px; }
 <script>
 document.addEventListener('DOMContentLoaded', ()=>{
 const locaties = [
-  { letter:'A', naam:'Bergen Centrum', vraag:'Wat is je favoriete kleur?', antwoord:'Blauw', coords:[52.6696,4.7053] },
-  { letter:'B', naam:'Bergerbos', vraag:'Welke dieren vind je leuk?', antwoord:'Honden', coords:[52.6739,4.6825] },
-  { letter:'C', naam:'Schoorlse Duinen', vraag:'Wat is je lievelingseten?', antwoord:'Pizza', coords:[52.6919,4.6732] },
-  { letter:'D', naam:'Duinweg Uitzicht', vraag:'Favoriete sport?', antwoord:'Voetbal', coords:[52.6802,4.6559] },
-  { letter:'E', naam:'Zeeweg Bosrand', vraag:'Welke muziek luister je graag?', antwoord:'Pop', coords:[52.6612,4.6668] },
-  { letter:'F', naam:'Park Meerwijk', vraag:'Wat is je hobby?', antwoord:'Fietsen', coords:[52.6659,4.7202] },
-  { letter:'G', naam:'Bergense Bos', vraag:'Favoriete seizoen?', antwoord:'Zomer', coords:[52.6711,4.6889] },
-  { letter:'H', naam:'Muurhuizen 241', vraag:'In welke stad ben je geboren?', antwoord:'Amersfoort', coords:[52.1563,5.3873] },
-  { letter:'I', naam:'Terug naar Bergen', vraag:'Wie gaat met pensioen?', antwoord:'Marion', coords:[52.6696,4.7053] }
+  { letter:'A', naam:'Bergen Centrum', coords:[52.6696,4.7053], opdracht:'Doe 10 pushups' },
+  { letter:'B', naam:'Bergerbos', coords:[52.6739,4.6825], opdracht:'Maak een foto van een boom' },
+  { letter:'C', naam:'Schoorlse Duinen', coords:[52.6919,4.6732], opdracht:'Spring drie keer in de lucht en maak een foto' },
+  { letter:'D', naam:'Duinweg Uitzicht', coords:[52.6802,4.6559], opdracht:'Maak een selfie met de duinen op de achtergrond' },
+  { letter:'E', naam:'Zeeweg Bosrand', coords:[52.6612,4.6668], opdracht:'Maak een foto van de zee' },
+  { letter:'F', naam:'Park Meerwijk', coords:[52.6659,4.7202], opdracht:'Doe een korte meditatie van 1 minuut' },
+  { letter:'G', naam:'Bergense Bos', coords:[52.6711,4.6889], opdracht:'Maak een foto met je groep' },
+  { letter:'H', naam:'Muurhuizen 241', coords:[52.1563,5.3873], opdracht:'Loop 10 stappen achteruit en maak een foto' },
+  { letter:'I', naam:'Terug naar Bergen', coords:[52.6696,4.7053], opdracht:'High five elkaar' }
 ];
 
 let userPos = null;
 let unlocked = {};
-let gpsHistory = []; // laatste posities bewaren voor smoothing
+let gpsHistory = [];
 const maxHistory = 5;
+let lastDistance = {};
 
 function render(){
   const list = document.getElementById('list');
   list.innerHTML = '';
   locaties.forEach(l=>{
-    const d = userPos ? Math.round(dist(userPos.lat,userPos.lng,l.coords[0],l.coords[1])) : null;
-    const isGreen = unlocked[l.letter] || (d !== null && d <= 200);
+    const d = lastDistance[l.letter] || 0;
+    const isGreen = unlocked[l.letter] || d <= 200;
     if(isGreen) unlocked[l.letter] = true;
     const el = document.createElement('div');
     el.className = 'location';
@@ -75,7 +74,7 @@ function render(){
       <div class="letter ${isGreen?'green':''}">${l.letter}</div>
       <div class="info">
         <div class="name">${l.naam}</div>
-        <div class="distance">${d!==null?d+' meter':'Afstand onbekend'}</div>
+        <div class="distance">${d} meter</div>
         ${isGreen?'<div class="tap">Tik om te openen</div>':''}
       </div>`;
     if(isGreen) el.onclick = ()=>openPopup(l);
@@ -90,52 +89,38 @@ function render(){
   });
 }
 
-function check(){
-  if(!userPos) return;
+function updateDistances(lat,lng){
   locaties.forEach(l=>{
-    const d = dist(userPos.lat,userPos.lng,l.coords[0],l.coords[1]);
+    const d = Math.round(dist(lat,lng,l.coords[0],l.coords[1]));
+    lastDistance[l.letter] = d;
     if(d <= 200) unlocked[l.letter] = true;
   });
   render();
 }
 
 // GPS toegang en smoothing
-if(navigator.geolocation){
-  navigator.geolocation.watchPosition(p=>{
-    if(p.coords.accuracy > 20) return; // filter onbetrouwbare posities
-    gpsHistory.push({lat:p.coords.latitude,lng:p.coords.longitude});
-    if(gpsHistory.length > maxHistory) gpsHistory.shift();
-    // gemiddelde positie berekenen
-    const avgLat = gpsHistory.reduce((sum,pos)=>sum+pos.lat,0)/gpsHistory.length;
-    const avgLng = gpsHistory.reduce((sum,pos)=>sum+pos.lng,0)/gpsHistory.length;
-    userPos = {lat:avgLat, lng:avgLng};
-    check();
-    document.getElementById('gpsError').innerText = '';
-  }, e=>{
-    document.getElementById('gpsError').innerText = 'GPS-toegang geweigerd of niet beschikbaar.';
-    render();
-  }, { enableHighAccuracy:true, maximumAge:1000, timeout:5000 });
-} else {
-  document.getElementById('gpsError').innerText = 'GPS wordt niet ondersteund in deze browser.';
-  render();
+function startTracking(){
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(p=>{
+      if(p.coords.accuracy > 30) return; // filter slechte posities
+      gpsHistory.push({lat:p.coords.latitude,lng:p.coords.longitude});
+      if(gpsHistory.length>maxHistory) gpsHistory.shift();
+      const avgLat = gpsHistory.reduce((s,pos)=>s+pos.lat,0)/gpsHistory.length;
+      const avgLng = gpsHistory.reduce((s,pos)=>s+pos.lng,0)/gpsHistory.length;
+      userPos = {lat:avgLat,lng:avgLng};
+      updateDistances(avgLat,avgLng);
+      document.getElementById('gpsError').innerText='';
+    }, e=>{
+      document.getElementById('gpsError').innerText='GPS toegang geweigerd of niet beschikbaar';
+    },{ enableHighAccuracy:true, maximumAge:1000, timeout:5000 });
+  } else {
+    document.getElementById('gpsError').innerText='GPS wordt niet ondersteund in deze browser.';
+  }
 }
 
 function openPopup(loc){
   document.getElementById('popupTitle').innerText = loc.letter+' – '+loc.naam;
-  document.getElementById('popupText').innerText = loc.vraag;
-  const waitText = document.getElementById('waitText');
-  waitText.style.display = 'none';
-  const answerBtn = document.getElementById('answerBtn');
-
-  answerBtn.onclick = ()=>{
-    const userAnswer = prompt('Typ je antwoord:');
-    if(userAnswer?.toLowerCase() === loc.antwoord.toLowerCase()){
-      alert('Goed zo! Volgende locatie kan worden geopend.');
-    } else {
-      waitText.style.display = 'block';
-    }
-  };
-
+  document.getElementById('popupText').innerText = loc.opdracht;
   document.getElementById('popup').style.display = 'flex';
 }
 
@@ -152,6 +137,7 @@ function dist(lat1,lon1,lat2,lon2){
 }
 
 render();
+startTracking();
 });
 </script>
 
