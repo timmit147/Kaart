@@ -61,7 +61,7 @@ h1 { font-size:20px; margin-bottom:4px; }
 document.addEventListener('DOMContentLoaded', ()=>{
 
 const locaties = [
-  { letter:'A', naam:'Bergen Centrum', coords:[52.6696,4.7053], vraag:'Wat is het oudste gebouw van Bergen?' , antwoord:'De oude Kerk' },
+  { letter:'A', naam:'Bergen Centrum', coords:[52.6696,4.7053], vraag:'Wat is het oudste gebouw van Bergen?', antwoord:'De oude Kerk' },
   { letter:'B', naam:'Bergerbos', coords:[52.6739,4.6825], vraag:'Welke boomsoort komt hier het meest voor?', antwoord:'Den' },
   { letter:'C', naam:'Schoorlse Duinen', coords:[52.6919,4.6732], vraag:'Wat is de hoogste duin van Schoorl?', antwoord:'Duin 54 meter' },
   { letter:'D', naam:'Duinweg Uitzicht', coords:[52.6802,4.6559], vraag:'Welke richting zie je de zee?', antwoord:'West' },
@@ -73,7 +73,7 @@ const locaties = [
 ];
 
 let userPos=null;
-let unlocked={}; // letters unlocked
+let unlocked={};
 
 const map=L.map('map',{zoomControl:false}).setView([52.6696,4.7053],14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -83,7 +83,7 @@ function render(){
   const list=document.getElementById('list'); list.innerHTML='';
   locaties.forEach(l=>{
     const d=userPos?Math.round(dist(userPos.lat,userPos.lng,l.coords[0],l.coords[1])):null;
-    let isGreen=unlocked[l.letter] || (d!==null && d<100);
+    const isGreen=unlocked[l.letter] || (d!==null && d<100);
     const el=document.createElement('div'); el.className='location';
     el.innerHTML=`
       <div class="letter ${isGreen?'green':''}">${l.letter}</div>
@@ -92,10 +92,9 @@ function render(){
         <div class="distance">${d!==null?d+' meter':''}</div>
         ${isGreen?'<div class="tap">Tik om te openen</div>':''}
       </div>`;
-
     if(isGreen) el.onclick=()=>openPopup(l);
 
-    // Cheat: lang indrukken 10s unlock
+    // cheat lang indrukken 10s
     let pressTimer;
     el.addEventListener('mousedown', ()=>{ pressTimer=setTimeout(()=>{ unlocked[l.letter]=true; render(); },10000); });
     el.addEventListener('touchstart', ()=>{ pressTimer=setTimeout(()=>{ unlocked[l.letter]=true; render(); },10000); });
@@ -127,14 +126,13 @@ function openPopup(loc){
   document.getElementById('popupTitle').innerText=loc.letter+' – '+loc.naam;
   document.getElementById('popupText').innerText=loc.vraag;
   const answerText=document.getElementById('answerText');
-  answerText.style.display='none';
-  answerText.innerText=loc.antwoord;
   const waitText=document.getElementById('waitText');
+  answerText.style.display='none';
   waitText.style.display='none';
-  const btn=document.getElementById('showAnswer');
-  btn.onclick=()=>{
+  answerText.innerText=loc.antwoord;
+  document.getElementById('showAnswer').onclick=()=>{
     answerText.style.display='block';
-    waitText.style.display='block'; // show 5 min wait text
+    waitText.style.display='block';
   };
   document.getElementById('popup').style.display='flex';
 }
@@ -143,7 +141,7 @@ function closePopup(){ document.getElementById('popup').style.display='none'; }
 
 function openMap(){
   document.getElementById('mapOverlay').style.display='block';
-  setTimeout(()=>{ map.invalidateSize(); },200); // fix blank map
+  setTimeout(()=>{ map.invalidateSize(); },200);
 }
 function closeMap(){ document.getElementById('mapOverlay').style.display='none'; }
 
