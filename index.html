@@ -42,13 +42,14 @@ h1 { font-size:22px; margin-bottom:6px; color:#1e3a8a; }
     <h2 id="popupTitle"></h2>
     <p id="popupText"></p>
     <img id="popupImage" src="" alt="Opdracht foto">
-    <button class="close" onclick="closePopup()">Sluiten</button>
+    <button class="close" id="popupClose">Sluiten</button>
   </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', ()=>{
 
+// Alle locaties, Muurhuizen 241 als laatste en altijd unlocked
 const locaties = [
   { letter:'A', naam:'Bergen Centrum', coords:[52.6696,4.7053], opdracht:'Doe 10 pushups' },
   { letter:'B', naam:'Bergerbos', coords:[52.6739,4.6825], opdracht:'Maak een foto van een boom' },
@@ -57,8 +58,7 @@ const locaties = [
   { letter:'E', naam:'Zeeweg Bosrand', coords:[52.6612,4.6668], opdracht:'Maak een foto van de zee' },
   { letter:'F', naam:'Park Meerwijk', coords:[52.6659,4.7202], opdracht:'Doe een korte meditatie van 1 minuut' },
   { letter:'G', naam:'Bergense Bos', coords:[52.6711,4.6889], opdracht:'Maak een foto met je groep' },
-  { letter:'H', naam:'Muurhuizen 241', coords:[52.1563,5.3873], opdracht:'Loop 10 stappen achteruit en maak een foto' },
-  { letter:'I', naam:'Terug naar Bergen', coords:[52.6696,4.7053], opdracht:'High five elkaar' }
+  { letter:'H', naam:'Test', coords:null, opdracht:'Deze locatie is altijd unlocked' } // laatste
 ];
 
 const images = [
@@ -78,15 +78,20 @@ let gpsHistory = [];
 const maxHistory = 5;
 let lastDistance = {};
 
-// laad unlocked uit localStorage
+// laad unlocked uit localStorage, Test altijd unlocked
 let unlocked = JSON.parse(localStorage.getItem('unlocked')) || {};
+unlocked['H'] = true;
+
+function saveUnlocked(){
+  localStorage.setItem('unlocked', JSON.stringify(unlocked));
+}
 
 function render(){
   const list = document.getElementById('list');
   list.innerHTML = '';
   locaties.forEach(l=>{
     const d = lastDistance[l.letter];
-    const isGreen = unlocked[l.letter] || (d !== undefined && d <= 200);
+    const isGreen = unlocked[l.letter] || (l.coords && d!==undefined && d <= 200);
     if(isGreen) unlocked[l.letter] = true;
     const el = document.createElement('div');
     el.className = 'location';
@@ -94,12 +99,12 @@ function render(){
       <div class="letter ${isGreen?'green':''}">${l.letter}</div>
       <div class="info">
         <div class="name">${l.naam}</div>
-        ${isGreen?'':`<div class="distance">${d!==undefined?d+' meter':'--'}</div>`}
+        ${isGreen || !l.coords?'':`<div class="distance">${d!==undefined?d+' meter':'--'}</div>`}
         ${isGreen?'<div class="tap">Tik om te openen</div>':''}
       </div>`;
     if(isGreen) el.onclick = ()=>openPopup(l);
 
-    // Cheat unlock
+    // Cheat unlock 10s lang indrukken
     let pressTimer;
     el.addEventListener('mousedown', ()=>{ pressTimer = setTimeout(()=>{ unlocked[l.letter]=true; saveUnlocked(); render(); },10000); });
     el.addEventListener('touchstart', ()=>{ pressTimer = setTimeout(()=>{ unlocked[l.letter]=true; saveUnlocked(); render(); },10000); });
@@ -109,23 +114,19 @@ function render(){
   });
 }
 
-// sla unlocked op in localStorage
-function saveUnlocked(){
-  localStorage.setItem('unlocked', JSON.stringify(unlocked));
-}
-
+// update afstand
 function updateDistances(lat,lng){
   locaties.forEach(l=>{
+    if(!l.coords) return;
     const d = Math.round(dist(lat,lng,l.coords[0],l.coords[1]));
     lastDistance[l.letter] = d;
-    if(d <= 200) {
-      unlocked[l.letter] = true;
-    }
+    if(d <= 200) unlocked[l.letter] = true;
   });
   saveUnlocked();
   render();
 }
 
+// start GPS tracking
 function startTracking(){
   if(navigator.geolocation){
     navigator.geolocation.watchPosition(p=>{
@@ -145,20 +146,21 @@ function startTracking(){
   }
 }
 
+// popup openen
 function openPopup(loc){
   document.getElementById('popupTitle').innerText = loc.letter+' – '+loc.naam;
   document.getElementById('popupText').innerText = loc.opdracht;
-  // kies een afbeelding
   const img = document.getElementById('popupImage');
   img.src = images[Math.floor(Math.random()*images.length)];
   document.getElementById('popup').style.display = 'flex';
 }
 
+// popup sluiten
 function closePopup(){
   document.getElementById('popup').style.display = 'none';
 }
 
-// Haversine afstand
+// Haversine
 function dist(lat1,lon1,lat2,lon2){
   const R=6371e3,toRad=x=>x*Math.PI/180;
   const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
@@ -168,6 +170,10 @@ function dist(lat1,lon1,lat2,lon2){
 
 render();
 startTracking();
+
+// Sluiten knop werken ook via keyboard / touch
+document.getElementById('popupClose').addEventListener('click', closePopup);
+
 });
 </script>
 
