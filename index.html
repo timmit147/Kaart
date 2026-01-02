@@ -1,57 +1,123 @@
 <!DOCTYPE html><html lang="nl">
 <head>
   <meta charset="UTF-8" />
-  <title>Fietsroute Bergen (Noord-Holland)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  <!-- Leaflet CSS (geen API key nodig) -->  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />  <style>
+  <title>Fiets Spel Bergen (NH) – Multiplayer Route Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  <!-- Leaflet -->  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />  <!-- Leaflet Routing Machine (gebruikt OSRM – geen API key) -->  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />  <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: system-ui, sans-serif;
     }
+
     #map {
       height: 100%;
       width: 100%;
     }
+
+    .game-box {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      max-width: 260px;
+      z-index: 1000;
+    }
+
+    .game-box h2 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+    }
+
+    .game-box button {
+      width: 100%;
+      margin-top: 6px;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      background: #2563eb;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+    }
   </style></head>
-<body>
-  <div id="map"></div>  <!-- Leaflet JS -->  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>  <script>
-    // Centrum Bergen (NH)
-    const bergenCenter = [52.6696, 4.7053];
+<body><div class="game-box">
+  <h2>🚲 Fiets Spel Bergen</h2>
+  <p><strong>Missie:</strong><br>
+  Fiets langs alle locaties en voltooi de opdrachten.</p>
+  <p><strong>Speciale missie:</strong><br>
+  Vier dat <b>Marion met pensioen gaat</b> 🎉</p>
+  <button onclick="nextMission()">Volgende missie</button>
+  <p id="missionText"></p>
+</div><div id="map"></div><!-- Scripts --><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script><script>
+  // Startpunt Bergen
+  const map = L.map('map').setView([52.6696, 4.7053], 13);
 
-    // Kaart initialiseren
-    const map = L.map('map').setView(bergenCenter, 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap bijdragers'
+  }).addTo(map);
 
-    // OpenStreetMap tiles (vrij te gebruiken, geen API key)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+  // Spel-locaties
+  const locaties = [
+    {
+      naam: 'Bergen Centrum',
+      coords: [52.6696, 4.7053],
+      missie: 'Start hier het spel en verzamel alle spelers.'
+    },
+    {
+      naam: 'Schoorlse Duinen',
+      coords: [52.6919, 4.6732],
+      missie: 'Maak een groepsfoto met de fietsen.'
+    },
+    {
+      naam: 'Duinweg',
+      coords: [52.6802, 4.6559],
+      missie: 'Wie kan het snelst 10 trappen tellen?'
+    },
+    {
+      naam: 'Terug naar Bergen',
+      coords: [52.6696, 4.7053],
+      missie: 'Eindfeest: Marion gaat met pensioen 🎉'
+    }
+  ];
 
-    // Voorbeeld fietsroute (Bergen → Schoorl → Duinen → Bergen)
-    const bikeRoute = [
-      [52.6696, 4.7053], // Bergen centrum
-      [52.6815, 4.6948], // Richting Schoorl
-      [52.6919, 4.6732], // Schoorlse Duinen
-      [52.6802, 4.6559],
-      [52.6627, 4.6765],
-      [52.6551, 4.6958],
-      [52.6696, 4.7053]  // Terug Bergen
-    ];
+  let huidigeMissie = 0;
 
-    // Route tekenen
-    const routeLine = L.polyline(bikeRoute, {
-      color: 'blue',
-      weight: 4,
-      opacity: 0.8
-    }).addTo(map);
+  // Markers
+  locaties.forEach(loc => {
+    L.marker(loc.coords)
+      .addTo(map)
+      .bindPopup(`<b>${loc.naam}</b><br>${loc.missie}`);
+  });
 
-    // Zoom aanpassen aan route
-    map.fitBounds(routeLine.getBounds());
+  // Routing (echte fietsroutes via OSRM)
+  const routing = L.Routing.control({
+    waypoints: locaties.map(l => L.latLng(l.coords[0], l.coords[1])),
+    router: L.Routing.osrmv1({
+      serviceUrl: 'https://router.project-osrm.org/route/v1'
+    }),
+    lineOptions: {
+      styles: [{ color: '#2563eb', weight: 4 }]
+    },
+    show: false,
+    addWaypoints: false,
+    draggableWaypoints: false,
+    fitSelectedRoutes: true
+  }).addTo(map);
 
-    // Start & eind marker
-    L.marker(bikeRoute[0]).addTo(map).bindPopup('Start / Eind: Bergen');
-  </script></body>
+  // Missies
+  function nextMission() {
+    if (huidigeMissie >= locaties.length) {
+      document.getElementById('missionText').innerText = '🎉 Alle missies voltooid!';
+      return;
+    }
+
+    const missie = locaties[huidigeMissie];
+    document.getElementById('missionText').innerText = `📍 ${missie.naam}: ${missie.missie}`;
+    huidigeMissie++;
+  }
+</script></body>
 </html>
